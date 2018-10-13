@@ -4,7 +4,6 @@ import style from "react-awesome-modal/lib/style";
 export const ButtonContainer = styled.div`
   position: relative;
   height: 40px;
-  background: red;
 `
 
 export const Button = styled.button`

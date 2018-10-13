@@ -92,15 +92,15 @@ app.post('/upload', upload.single('file'), (req, res) => {
   const meta = req.body;
 
   const item = {
-    title: meta.title || '',
+    title: meta.address || '',
     address: meta.address || '',
     lat: meta.lat || 0,
     lng: meta.lng || 0,
+    icon: file.path || 'uploads/default.png',
     url: file.path || 'uploads/default.png'
   }
-
-  var itemMarker = new Marker(item);
-  itemMarker.save().then((marker) => {
+  var markerInstance = new Marker(item);
+  markerInstance.save().then((marker) => {
     res.send({marker});
   }, (e) => {
     res.status(400).send(e);

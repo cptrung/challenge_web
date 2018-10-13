@@ -73,7 +73,7 @@ class MapContainer extends React.PureComponent {
     const lastMarker = _.last(nearestMarker);
     const destination = new google.maps.LatLng(lastMarker.lat, lastMarker.lng);
 
-    const remainMarker = _.slice(nearestMarker, 1, nearestMarker.length - 2);
+    const remainMarker = _.slice(nearestMarker, 1, nearestMarker.length - 1);
     const waypoints = _.map(remainMarker, (marker) => {
       return {
         location: new google.maps.LatLng(marker.lat, marker.lng),
@@ -125,6 +125,12 @@ class MapContainer extends React.PureComponent {
     this.setState({ isShowModal: false })
   }
 
+  handleUpdateMarkers = (marker) => {
+    const { markers } = this.state;
+    markers.push(marker);
+    this.setState({ markers });
+  }
+
   render() {
     const { userLocation, markers, directions, isTravelMode, isShowModal } = this.state;
     const google = window.google;
@@ -132,7 +138,7 @@ class MapContainer extends React.PureComponent {
     const travelModeRender = isTravelMode && <TravelModeRenderer google={google} onChange={() => this.onChangeTravelMode} />;
     const travelButtonRender = !isTravelMode && <ButtonRenderer onClick={() => this.onClickTravelButton} text={`Travel with 5 poits near me`} position={google.maps.ControlPosition.TOP_LEFT} />;
     const directionsRender = isTravelMode && !_.isEmpty(directions) && <DirectionsRenderer directions={directions} />;
-    const buttonAddNew = <ButtonRenderer onClick={() => this.openModal} text={`Add new marker`} position={google.maps.ControlPosition.BOTTOM_CENTER} />;
+    const buttonAddNew = <ButtonRenderer onClick={() => this.openModal} text={`Add new marker`} position={google.maps.ControlPosition.BOTTOM_CENTER}/>;
     const markerRender = <MarkersRenderer markers={markers} positionCenter={userLocation} google={google} />;
 
     return (
@@ -149,7 +155,7 @@ class MapContainer extends React.PureComponent {
           {markerRender}
           {directionsRender}
         </GoogleMap>
-        <AddNewModal visible={isShowModal} closeModal={this.closeModal} />
+        <AddNewModal visible={isShowModal} closeModal={this.closeModal} onUpdateMarker={this.handleUpdateMarkers}/>
       </div>
     )
   }
@@ -158,7 +164,7 @@ export default compose(
   withProps({
     googleMapURL: "https://maps.googleapis.com/maps/api/js?key=AIzaSyCLsHXXsmgBjJ5-9EjM8fVQhpDDJ10jM4M&v=3.exp&libraries=geometry,drawing,places",
     loadingElement: <div style={{ height: `100%` }} />,
-    containerElement: <div style={{ height: `80vh` }} />,
+    containerElement: <div style={{ height: `100vh` }} />,
     mapElement: <div style={{ height: `100%` }} />
   }),
   withScriptjs,
