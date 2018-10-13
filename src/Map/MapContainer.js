@@ -1,5 +1,6 @@
-import _ from "lodash";
 import React from "react";
+import _ from "lodash";
+import axios from 'axios';
 import { compose, withProps } from "recompose";
 import {
   withScriptjs,
@@ -8,11 +9,12 @@ import {
   DirectionsRenderer,
 } from "react-google-maps";
 
-import { mapOptions, markers } from '../Components/default';
+import { mapOptions } from '../Components/default';
 import { searchByLocations } from '../Utils/search';
 import MarkersRenderer from './MarkersRenderer';
 import TravelModeRenderer from '../Components/TravelModeRenderer';
 import ButtonRenderer from '../Components/ButtonRenderer';
+import AddNewModal from '../Components/AddNewModal';
 
 class MapContainer extends React.PureComponent {
   constructor(props) {
@@ -22,14 +24,24 @@ class MapContainer extends React.PureComponent {
         lat: 0,
         lng: 0
       },
-      markers,
+      markers: [],
       nearestMarker: [],
-      isTravelMode: false
+      isTravelMode: false,
+      isShowModal: false
     }
   }
 
   componentDidMount() {
+    this.initData();
     this.getGeoLocation();
+  }
+
+  initData = () => {
+    const url = 'http://localhost:5000/marker';
+    axios.get(url).then(response => {
+      const { markers } = response.data || [];
+      this.setState({ markers })
+    });
   }
 
   getGeoLocation = () => {
@@ -51,21 +63,41 @@ class MapContainer extends React.PureComponent {
     this.calculateAndDisplayRoute(e.target.value)
   }
 
+  calculateRouteFromMarker = () => {
+    const { nearestMarker } = this.state;
+    const google = window.google;
+
+    const firstMarker = _.first(nearestMarker);
+    const origin = new google.maps.LatLng(firstMarker.lat, firstMarker.lng);
+
+    const lastMarker = _.last(nearestMarker);
+    const destination = new google.maps.LatLng(lastMarker.lat, lastMarker.lng);
+
+    const remainMarker = _.slice(nearestMarker, 1, nearestMarker.length - 2);
+    const waypoints = _.map(remainMarker, (marker) => {
+      return {
+        location: new google.maps.LatLng(marker.lat, marker.lng),
+        // stopover: false
+      }
+    });
+
+    return {
+      origin,
+      destination,
+      waypoints
+    }
+  }
+
   calculateAndDisplayRoute = (selectedMode = 'DRIVING') => {
-    const DirectionsService = new window.google.maps.DirectionsService({ suppressMarkers: false });
+    const DirectionsService = new window.google.maps.DirectionsService({suppressMarkers : true });
+
+    const markers = this.calculateRouteFromMarker();
 
     DirectionsService.route({
-      origin: new window.google.maps.LatLng(16.455263, 107.59596929999998),
-      destination: new window.google.maps.LatLng(16.4685374, 107.59870849999993),
+      origin: markers.origin,
+      destination: markers.destination,
       travelMode: window.google.maps.TravelMode[selectedMode],
-      waypoints: [{
-        location: new window.google.maps.LatLng(16.456184, 107.58093600000007),
-        // stopover: false
-      },
-      {
-        location: new window.google.maps.LatLng(16.4657437, 107.59208860000001),
-        // stopover: false
-      }]
+      waypoints: markers.waypoints,
     }, (result, status) => {
       if (status === window.google.maps.DirectionsStatus.OK) {
         this.setState({
@@ -78,34 +110,55 @@ class MapContainer extends React.PureComponent {
   }
 
   onClickTravelButton = () => {
-    const { userLocation } = this.state;
-    const searchLocations = searchByLocations(markers, userLocation, 2);
-    this.setState({ isTravelMode: true, nearestMarker: searchLocations});
+    const { userLocation, markers } = this.state;
+    const searchLocations = searchByLocations(markers, userLocation, 5);
+    this.setState({ isTravelMode: true, nearestMarker: searchLocations },() => {
+      this.calculateAndDisplayRoute();
+    });
+  }
+
+  openModal = () => {
+    this.setState({ isShowModal: true })
+  }
+
+  closeModal = () => {
+    this.setState({ isShowModal: false })
   }
 
   render() {
-    const { userLocation, markers, directions, isTravelMode } = this.state;
+    const { userLocation, markers, directions, isTravelMode, isShowModal } = this.state;
     const google = window.google;
 
-    return (<GoogleMap
-      centerAroundCurrentLocation
-      defaultZoom={15}
-      center={userLocation}
-      options={mapOptions}
-    >
-      {isTravelMode && <TravelModeRenderer google={google} onChange={() => this.onChangeTravelMode} />}
-      {!isTravelMode && <ButtonRenderer onClick={() => this.onClickTravelButton} text={`Travel with 5 poits near me`} position={google.maps.ControlPosition.TOP_LEFT} />}
-      <ButtonRenderer onClick={() => this.onClickAddButton} text={`Add new marker`} position={google.maps.ControlPosition.BOTTOM_LEFT} />
-      <MarkersRenderer markers={markers} positionCenter={userLocation} google={google} />
-      {isTravelMode && !_.isEmpty(directions) && <DirectionsRenderer directions={directions} />}
-    </GoogleMap>)
+    const travelModeRender = isTravelMode && <TravelModeRenderer google={google} onChange={() => this.onChangeTravelMode} />;
+    const travelButtonRender = !isTravelMode && <ButtonRenderer onClick={() => this.onClickTravelButton} text={`Travel with 5 poits near me`} position={google.maps.ControlPosition.TOP_LEFT} />;
+    const directionsRender = isTravelMode && !_.isEmpty(directions) && <DirectionsRenderer directions={directions} />;
+    const buttonAddNew = <ButtonRenderer onClick={() => this.openModal} text={`Add new marker`} position={google.maps.ControlPosition.BOTTOM_CENTER} />;
+    const markerRender = <MarkersRenderer markers={markers} positionCenter={userLocation} google={google} />;
+
+    return (
+      <div>
+        <GoogleMap
+          centerAroundCurrentLocation
+          defaultZoom={15}
+          center={userLocation}
+          options={mapOptions}
+        >
+          {travelModeRender}
+          {travelButtonRender}
+          {buttonAddNew}
+          {markerRender}
+          {directionsRender}
+        </GoogleMap>
+        <AddNewModal visible={isShowModal} closeModal={this.closeModal} />
+      </div>
+    )
   }
 }
 export default compose(
   withProps({
     googleMapURL: "https://maps.googleapis.com/maps/api/js?key=AIzaSyCLsHXXsmgBjJ5-9EjM8fVQhpDDJ10jM4M&v=3.exp&libraries=geometry,drawing,places",
     loadingElement: <div style={{ height: `100%` }} />,
-    containerElement: <div style={{ height: `100vh` }} />,
+    containerElement: <div style={{ height: `80vh` }} />,
     mapElement: <div style={{ height: `100%` }} />
   }),
   withScriptjs,

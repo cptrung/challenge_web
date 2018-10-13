@@ -8,8 +8,8 @@ const MarkersRenderer = ({ markers, positionCenter }) => {
   arrayMarker.push(<Marker position={positionCenter} key={`marker-center`} />);
   _.forEach(markers, (item, index) => {
     const position = { lat: item.lat, lng: item.lng }
-    const icon = { url: item.icon, scaledSize: { width: 32, height: 32 } };
-    const marker = <Marker position={position} key={`marker-${index.toString()}`} icon={icon} />
+    const icon = { url: `http://localhost:5000/${item.icon}`, scaledSize: { width: 32, height: 32 } };
+    const marker = <Marker position={position} key={`marker-${index.toString()}`} icon={icon}/>
     arrayMarker.push(marker);
   });
 
